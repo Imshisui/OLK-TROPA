@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using Celeste.Core.Platform.Audio;
 using Celeste.Core.Platform.Interop;
 using Celeste.Core.Platform.Runtime;
 using Microsoft.Xna.Framework;
@@ -377,47 +378,78 @@ public class GameLoader : Scene
 		string currentStage = "AUDIO_INIT";
 		LogLoadStage(currentStage, stopwatch);
 		CelestePathBridge.LogInfo("LOAD", $"LoadThread policy snapshot: lowMemoryMode={AndroidRuntimePolicy.IsLowMemoryModeEnabled()}; aggressiveGc={AndroidRuntimePolicy.IsAggressiveGarbageCollectionEnabled()}");
+		bool trackAndroidAudioInitMarker = OperatingSystem.IsAndroid() && AudioRuntimePolicy.IsFmodEnabledOnAndroid();
+		if (trackAndroidAudioInitMarker)
+		{
+			AudioRuntimePolicy.MarkAndroidAudioInitStart();
+		}
 		try
 		{
-			Audio.Init();
-			if (Audio.FallbackSilentMode)
-			{
-				audioLoaded = false;
-				CelestePathBridge.LogWarn("FMOD", "Audio initialization entered fallback mode before bank load. Continuing silently.");
-			}
-			else
-			{
-				Audio.Banks.Master = Audio.Banks.Load("Master Bank", loadStrings: true);
-				Audio.Banks.Music = Audio.Banks.Load("music", loadStrings: false);
-				Audio.Banks.Sfxs = Audio.Banks.Load("sfx", loadStrings: false);
-				Audio.Banks.UI = Audio.Banks.Load("ui", loadStrings: false);
-				Audio.Banks.DlcMusic = Audio.Banks.Load("dlc_music", loadStrings: false);
-				Audio.Banks.DlcSfxs = Audio.Banks.Load("dlc_sfx", loadStrings: false);
-				Settings.Instance.ApplyVolumes();
-				audioLoaded = true;
-			}
-		}
-		catch (Exception ex)
-		{
-			audioLoaded = false;
-			string reason = (!string.IsNullOrEmpty(ex.Message) && ex.Message.IndexOf("ERR_HEADER_MISMATCH", StringComparison.OrdinalIgnoreCase) >= 0) ? "FMOD_BANK_HEADER_MISMATCH" : "FMOD_BOOT_FAILED";
-			Audio.ActivateFallback(reason, ex);
-			if (reason == "FMOD_BANK_HEADER_MISMATCH")
-			{
-				CelestePathBridge.LogWarn("FMOD", "Detected incompatible FMOD bank format (ERR_HEADER_MISMATCH). Continuing with silent audio fallback.");
-			}
-			else
-			{
-				CelestePathBridge.LogWarn("FMOD", "FMOD init failed. Continuing with silent audio fallback.");
-			}
-
 			try
 			{
-				ErrorLog.Write(ex);
+				Audio.Init();
+				if (Audio.FallbackSilentMode)
+				{
+					audioLoaded = false;
+					CelestePathBridge.LogWarn("FMOD", "Audio initialization entered fallback mode before bank load. Continuing silently.");
+				}
+				else
+				{
+					Audio.Banks.Master = Audio.Banks.Load("Master Bank", loadStrings: true);
+					Audio.Banks.Music = Audio.Banks.Load("music", loadStrings: false);
+					Audio.Banks.Sfxs = Audio.Banks.Load("sfx", loadStrings: false);
+					Audio.Banks.UI = Audio.Banks.Load("ui", loadStrings: false);
+					Audio.Banks.DlcMusic = Audio.Banks.Load("dlc_music", loadStrings: false);
+					Audio.Banks.DlcSfxs = Audio.Banks.Load("dlc_sfx", loadStrings: false);
+					Settings.Instance.ApplyVolumes();
+					audioLoaded = true;
+				}
 			}
-			catch (Exception ex2)
+			catch (Exception ex)
 			{
-				CelestePathBridge.LogError("FMOD", "Failed to write diagnostic error entry after FMOD failure: " + ex2);
+				audioLoaded = false;
+				string reason = "FMOD_BOOT_FAILED";
+				if (!string.IsNullOrEmpty(ex.Message))
+				{
+					if (ex.Message.IndexOf("ERR_HEADER_MISMATCH", StringComparison.OrdinalIgnoreCase) >= 0)
+					{
+						reason = "FMOD_BANK_HEADER_MISMATCH";
+					}
+					else if (ex.Message.IndexOf("ERR_VERSION", StringComparison.OrdinalIgnoreCase) >= 0 || ex.Message.IndexOf("runtime/wrapper version mismatch", StringComparison.OrdinalIgnoreCase) >= 0)
+					{
+						reason = "FMOD_RUNTIME_VERSION_MISMATCH";
+					}
+				}
+
+				Audio.ActivateFallback(reason, ex);
+				if (reason == "FMOD_BANK_HEADER_MISMATCH")
+				{
+					CelestePathBridge.LogWarn("FMOD", "Detected incompatible FMOD bank format (ERR_HEADER_MISMATCH). Continuing with silent audio fallback.");
+				}
+				else if (reason == "FMOD_RUNTIME_VERSION_MISMATCH")
+				{
+					CelestePathBridge.LogWarn("FMOD", "Detected FMOD runtime/wrapper mismatch. Continuing with silent audio fallback.");
+				}
+				else
+				{
+					CelestePathBridge.LogWarn("FMOD", "FMOD init failed. Continuing with silent audio fallback.");
+				}
+
+				try
+				{
+					ErrorLog.Write(ex);
+				}
+				catch (Exception ex2)
+				{
+					CelestePathBridge.LogError("FMOD", "Failed to write diagnostic error entry after FMOD failure: " + ex2);
+				}
+			}
+		}
+		finally
+		{
+			if (trackAndroidAudioInitMarker)
+			{
+				AudioRuntimePolicy.MarkAndroidAudioInitComplete();
 			}
 		}
 

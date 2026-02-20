@@ -58,8 +58,15 @@ public sealed class FmodAudioBackend : IAudioBackend
                 _logger.Log(LogLevel.Warn, "FMOD", "FMOD Java bridge could not be initialized; native FMOD init may fail on some devices");
             }
 
-            IsInitialized = true;
-            _logger.Log(LogLevel.Info, "FMOD", "FMOD backend ready");
+            IsInitialized = nativeLibrariesReady || _javaBridgeReady;
+            if (IsInitialized)
+            {
+                _logger.Log(LogLevel.Info, "FMOD", "FMOD backend ready");
+            }
+            else
+            {
+                _logger.Log(LogLevel.Warn, "FMOD", "FMOD backend preflight failed: native libraries and Java bridge are unavailable");
+            }
         }
         catch (Exception exception)
         {

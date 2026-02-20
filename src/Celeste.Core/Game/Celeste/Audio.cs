@@ -38,7 +38,14 @@ public static class Audio
 			}
 
 			CheckFmod(system.loadBankFile(text + ".bank", LOAD_BANK_FLAGS.NORMAL, out var bank));
-			bank.loadSampleData();
+			if (ShouldPreloadFmodSamplesOnCurrentPlatform())
+			{
+				RESULT result = bank.loadSampleData();
+				if (result != RESULT.OK)
+				{
+					CelestePathBridge.LogWarn("FMOD", $"Bank sample preload failed for '{name}': {result}. Continuing with streaming fallback.");
+				}
+			}
 			if (loadStrings)
 			{
 				if (!File.Exists(text + ".strings.bank"))
@@ -103,6 +110,8 @@ public static class Audio
 	private static bool ready;
 
 	private static bool androidDriverInfoLogged;
+
+	private static bool androidSamplePreloadPolicyLogged;
 
 	public static bool FallbackSilentMode { get; private set; }
 
@@ -228,7 +237,13 @@ public static class Audio
 		androidDriverInfoLogged = false;
 		if (AudioRuntimePolicy.ShouldForceSilentAudio())
 		{
-			CelestePathBridge.LogWarn("FMOD", $"Android silent-audio policy is active. Skipping FMOD init. Set '{AudioRuntimePolicy.EnableFmodOnAndroidSwitch}' switch to true to test FMOD.");
+			string text = string.Empty;
+			if (AudioRuntimePolicy.TryGetAndroidFmodRuntimeOverride(out _, out string reason) && !string.IsNullOrWhiteSpace(reason))
+			{
+				text = "; runtimeReason=" + reason;
+			}
+
+			CelestePathBridge.LogWarn("FMOD", $"Android silent-audio policy is active. Skipping FMOD init. Set '{AudioRuntimePolicy.EnableFmodOnAndroidSwitch}' switch to true to test FMOD{text}.");
 			ActivateFallback("AUDIO_DISABLED_BY_POLICY_ANDROID");
 			return;
 		}
@@ -311,7 +326,7 @@ public static class Audio
 							CelestePathBridge.LogInfo("FMOD", $"FMOD runtime version detected: 0x{runtimeVersion:X}; wrapper expects 0x{VERSION.number:X}");
 							if (runtimeVersion != VERSION.number)
 							{
-								CelestePathBridge.LogWarn("FMOD", "FMOD runtime/wrapper version mismatch detected; this can cause initialization failures.");
+								throw new Exception($"FMOD runtime/wrapper version mismatch: runtime=0x{runtimeVersion:X}; expected=0x{VERSION.number:X}");
 							}
 						}
 
@@ -413,9 +428,9 @@ public static class Audio
 
 		return new AndroidInitProfile[3]
 		{
-			new AndroidInitProfile("android-baseline", applySoftwareFormat: false, applyDspBuffer: false, useThreadlessUpdate: false),
 			new AndroidInitProfile("android-java-hints", applySoftwareFormat: true, applyDspBuffer: true, useThreadlessUpdate: false),
-			new AndroidInitProfile("android-threadless-hints", applySoftwareFormat: true, applyDspBuffer: true, useThreadlessUpdate: true)
+			new AndroidInitProfile("android-threadless-hints", applySoftwareFormat: true, applyDspBuffer: true, useThreadlessUpdate: true),
+			new AndroidInitProfile("android-baseline", applySoftwareFormat: false, applyDspBuffer: false, useThreadlessUpdate: false)
 		};
 	}
 
@@ -428,19 +443,17 @@ public static class Audio
 
 		if (AudioRuntimePolicy.TryGetAndroidDeviceAudioHints(out _, out _, out _, out bool bluetoothOn, out _) && bluetoothOn)
 		{
-			return new OUTPUTTYPE[3]
+			return new OUTPUTTYPE[2]
 			{
 				OUTPUTTYPE.AUDIOTRACK,
-				OUTPUTTYPE.AUTODETECT,
-				OUTPUTTYPE.OPENSL
+				OUTPUTTYPE.AUTODETECT
 			};
 		}
 
-		return new OUTPUTTYPE[3]
+		return new OUTPUTTYPE[2]
 		{
 			OUTPUTTYPE.AUTODETECT,
-			OUTPUTTYPE.AUDIOTRACK,
-			OUTPUTTYPE.OPENSL
+			OUTPUTTYPE.AUDIOTRACK
 		};
 	}
 
@@ -453,10 +466,10 @@ public static class Audio
 
 		if (AndroidRuntimePolicy.IsLowMemoryModeEnabled())
 		{
-			return new int[6] { 256, 128, 64, 32, 16, 8 };
+			return new int[5] { 128, 64, 32, 16, 8 };
 		}
 
-		return new int[6] { 512, 256, 128, 64, 32, 16 };
+		return new int[5] { 256, 128, 64, 32, 16 };
 	}
 
 	private static void ApplyAndroidDeviceAudioHints(FMOD.System lowLevelSystem, OUTPUTTYPE outputType, bool applySoftwareFormat, bool applyDspBuffer, string profileName)
@@ -609,6 +622,30 @@ public static class Audio
 		}
 
 		return normalized;
+	}
+
+	private static bool ShouldPreloadFmodSamplesOnCurrentPlatform()
+	{
+		if (!OperatingSystem.IsAndroid())
+		{
+			return true;
+		}
+
+		bool enabled = AudioRuntimePolicy.IsFmodSamplePreloadEnabledOnAndroid();
+		if (!androidSamplePreloadPolicyLogged)
+		{
+			androidSamplePreloadPolicyLogged = true;
+			if (enabled)
+			{
+				CelestePathBridge.LogInfo("FMOD", $"Android FMOD sample preload enabled by switch '{AudioRuntimePolicy.EnableFmodSamplePreloadOnAndroidSwitch}'.");
+			}
+			else
+			{
+				CelestePathBridge.LogWarn("FMOD", "Android FMOD sample preload disabled by default for compatibility. Events will stream sample data on demand.");
+			}
+		}
+
+		return enabled;
 	}
 
 	public static void Update()
@@ -914,7 +951,14 @@ public static class Audio
 			switch (rESULT)
 			{
 			case RESULT.OK:
-				value.loadSampleData();
+				if (ShouldPreloadFmodSamplesOnCurrentPlatform())
+				{
+					RESULT result = value.loadSampleData();
+					if (result != RESULT.OK)
+					{
+						CelestePathBridge.LogWarn("FMOD", $"Event sample preload failed for '{path}': {result}. Continuing with streaming fallback.");
+					}
+				}
 				cachedEventDescriptions.Add(path, value);
 				break;
 			default:
