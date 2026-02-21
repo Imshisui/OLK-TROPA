@@ -55,7 +55,7 @@ jobs:
             libxcb1 \
             libnss3 \
             libdbus-1-3 \
-            libasound2 \
+            libasound2t64 \
             xvfb
 
       - name: Build FMOD banks
