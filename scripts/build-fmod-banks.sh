@@ -156,21 +156,32 @@ PROJECT_DIR="$(dirname "$FSPRO_PATH")"
 pushd "$PROJECT_DIR" >/dev/null
 
 export LD_LIBRARY_PATH="$FMOD_HOME/lib:${LD_LIBRARY_PATH:-}"
-export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-minimal}"
 
 echo "[fmod] building banks via fmodstudiocl"
-if ! "$FMOD_CLI" --platform minimal -build "$FSPRO_PATH"; then
-  echo "[fmod] minimal mode failed, retrying default mode"
-  if ! "$FMOD_CLI" -build "$FSPRO_PATH"; then
-    if command -v xvfb-run >/dev/null 2>&1; then
-      echo "[fmod] direct CLI build failed; retrying with xvfb-run"
-      if ! xvfb-run -a "$FMOD_CLI" --platform minimal -build "$FSPRO_PATH"; then
-        xvfb-run -a "$FMOD_CLI" -build "$FSPRO_PATH"
+BUILD_LOG="$WORK_DIR/fmod-build.log"
+if ! "$FMOD_CLI" --platform minimal -build "$FSPRO_PATH" 2>&1 | tee "$BUILD_LOG"; then
+  if grep -qi "Project is out of date and requires project migration" "$BUILD_LOG"; then
+    echo "[fmod] ERROR: This FMOD project is from an older major version and must be migrated in FMOD Studio UI before CLI build."
+    echo "[fmod] Open project in FMOD Studio 2.03.12, allow migration, Save Project, and upload the migrated project archive."
+    exit 2
+  fi
+
+  if command -v xvfb-run >/dev/null 2>&1; then
+    echo "[fmod] minimal mode failed; retrying with xvfb-run"
+    if ! xvfb-run -a "$FMOD_CLI" --platform minimal -build "$FSPRO_PATH" 2>&1 | tee -a "$BUILD_LOG"; then
+      if grep -qi "Project is out of date and requires project migration" "$BUILD_LOG"; then
+        echo "[fmod] ERROR: This FMOD project is from an older major version and must be migrated in FMOD Studio UI before CLI build."
+        echo "[fmod] Open project in FMOD Studio 2.03.12, allow migration, Save Project, and upload the migrated project archive."
+        exit 2
       fi
-    else
-      echo "[fmod] build failed and xvfb-run is unavailable"
+
+      echo "[fmod] build failed; see log at $BUILD_LOG"
       exit 1
     fi
+  else
+    echo "[fmod] build failed and xvfb-run is unavailable"
+    exit 1
   fi
 fi
 
