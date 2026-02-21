@@ -184,16 +184,7 @@ public class Atlas
 					atlas.textures[text5] = new MTexture(parent3, text5, new Rectangle(x, y, width, height), new Vector2(-num8, -num9), width2, height2);
 				}
 			}
-			if (fileStream2.Position < fileStream2.Length && binaryReader2.ReadString() == "LINKS")
-			{
-				short num10 = binaryReader2.ReadInt16();
-				for (int n = 0; n < num10; n++)
-				{
-					string key2 = binaryReader2.ReadString();
-					string value2 = binaryReader2.ReadString();
-					atlas.links.Add(key2, value2);
-				}
-			}
+			TryReadLinks(binaryReader2, atlas);
 			break;
 		}
 		case AtlasDataFormat.PackerNoAtlas:
@@ -226,16 +217,7 @@ public class Atlas
 					atlas.textures[text3].AtlasPath = text3;
 				}
 			}
-			if (fileStream.Position < fileStream.Length && binaryReader.ReadString() == "LINKS")
-			{
-				short num5 = binaryReader.ReadInt16();
-				for (int k = 0; k < num5; k++)
-				{
-					string key = binaryReader.ReadString();
-					string value = binaryReader.ReadString();
-					atlas.links.Add(key, value);
-				}
-			}
+			TryReadLinks(binaryReader, atlas);
 			break;
 		}
 		case AtlasDataFormat.CrunchXmlOrBinary:
@@ -250,6 +232,28 @@ public class Atlas
 			break;
 		default:
 			throw new NotImplementedException();
+		}
+	}
+
+	private static void TryReadLinks(BinaryReader reader, Atlas atlas)
+	{
+		try
+		{
+			if (reader.ReadString() != "LINKS")
+			{
+				return;
+			}
+
+			short num = reader.ReadInt16();
+			for (int i = 0; i < num; i++)
+			{
+				string key = reader.ReadString();
+				string value = reader.ReadString();
+				atlas.links[key] = value;
+			}
+		}
+		catch (EndOfStreamException)
+		{
 		}
 	}
 
