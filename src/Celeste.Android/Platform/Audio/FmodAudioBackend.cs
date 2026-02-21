@@ -15,7 +15,6 @@ public sealed class FmodAudioBackend : IAudioBackend
     private const string FmodClassPath = "org/fmod/FMOD";
     private const int JavaBridgeInitRetryCount = 3;
     private const int JavaBridgeRetryDelayMs = 40;
-    private const string EnableJavaBridgeOnApi34PlusSwitch = "Celeste.Android.EnableFmodJavaBridgeOnApi34Plus";
 
     private readonly IAppLogger _logger;
     private readonly Context _context;
@@ -48,26 +47,15 @@ public sealed class FmodAudioBackend : IAudioBackend
                 _logger.Log(LogLevel.Warn, "FMOD", "Native FMOD libraries were not preloaded from Java; continuing with bridge init fallback");
             }
 
-            if (ShouldSkipJavaBridgeInit())
+            _javaBridgeReady = EnsureJavaBridgeReady("startup");
+            if (_javaBridgeReady)
             {
-                _javaBridgeReady = false;
-                _logger.Log(
-                    LogLevel.Warn,
-                    "FMOD",
-                    "Skipping FMOD Java bridge init on Android API >= 34 for compatibility. Set AppContext switch 'Celeste.Android.EnableFmodJavaBridgeOnApi34Plus' to true to force legacy behavior.");
+                _logger.Log(LogLevel.Info, "FMOD", "FMOD Java bridge initialized (org.fmod.FMOD.init)");
+                CaptureJavaAudioHints();
             }
             else
             {
-                _javaBridgeReady = EnsureJavaBridgeReady("startup");
-                if (_javaBridgeReady)
-                {
-                    _logger.Log(LogLevel.Info, "FMOD", "FMOD Java bridge initialized (org.fmod.FMOD.init)");
-                    CaptureJavaAudioHints();
-                }
-                else
-                {
-                    _logger.Log(LogLevel.Warn, "FMOD", "FMOD Java bridge could not be initialized; native FMOD init may fail on some devices");
-                }
+                _logger.Log(LogLevel.Warn, "FMOD", "FMOD Java bridge could not be initialized; native FMOD init may fail on some devices");
             }
 
             IsInitialized = nativeLibrariesReady || _javaBridgeReady;
@@ -89,16 +77,11 @@ public sealed class FmodAudioBackend : IAudioBackend
 
     public void OnPause()
     {
-        // FMOD 1.10.14 Java bridge does not expose a pause callback.
+        // FMOD Java bridge does not expose a pause callback.
     }
 
     public void OnResume()
     {
-        if (ShouldSkipJavaBridgeInit())
-        {
-            return;
-        }
-
         _javaBridgeReady = EnsureJavaBridgeReady("resume");
         if (!_javaBridgeReady)
         {
@@ -111,13 +94,6 @@ public sealed class FmodAudioBackend : IAudioBackend
 
     public void Shutdown()
     {
-        if (ShouldSkipJavaBridgeInit())
-        {
-            _javaBridgeReady = false;
-            IsInitialized = false;
-            return;
-        }
-
         if (!_javaBridgeReady)
         {
             return;
@@ -174,27 +150,6 @@ public sealed class FmodAudioBackend : IAudioBackend
                 JNIEnv.DeleteLocalRef(classRef);
             }
         }
-    }
-
-    private static bool ShouldSkipJavaBridgeInit()
-    {
-        if (!OperatingSystem.IsAndroid())
-        {
-            return false;
-        }
-
-        var sdk = (int)Build.VERSION.SdkInt;
-        if (sdk < 34)
-        {
-            return false;
-        }
-
-        if (AppContext.TryGetSwitch(EnableJavaBridgeOnApi34PlusSwitch, out var forceEnable) && forceEnable)
-        {
-            return false;
-        }
-
-        return true;
     }
 
     private bool EnsureNativeLibrariesLoaded()

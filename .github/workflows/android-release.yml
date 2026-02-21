@@ -23,10 +23,60 @@ jobs:
       - name: Build Celeste.Core
         run: dotnet build "src/Celeste.Core/Celeste.Core.csproj" -c Release -clp:ErrorsOnly
 
+  generate-fmod-banks:
+    name: Generate FMOD Banks
+    runs-on: ubuntu-latest
+    needs: core-smoke-test
+    if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+    env:
+      FMOD_STUDIO_DEB_URL: ${{ secrets.FMOD_STUDIO_DEB_URL || vars.FMOD_STUDIO_DEB_URL || 'https://github.com/Imshisui/OLK-TROPA/releases/download/V/fmodstudio20312linux64-installer.deb' }}
+      FMOD_PROJECT_ARCHIVE_URL: ${{ secrets.FMOD_PROJECT_ARCHIVE_URL || vars.FMOD_PROJECT_ARCHIVE_URL || 'https://github.com/Imshisui/OLK-TROPA/releases/download/V/fmodstudio10000celeste-project-dlc.1.zip' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install FMOD CLI runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libglib2.0-0 \
+            libfontconfig1 \
+            libx11-6 \
+            libx11-xcb1 \
+            libxrender1 \
+            libxrandr2 \
+            libxi6 \
+            libxext6 \
+            libxfixes3 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxkbcommon0 \
+            libxkbcommon-x11-0 \
+            libxcb1 \
+            libnss3 \
+            libdbus-1-3 \
+            libasound2 \
+            xvfb
+
+      - name: Build FMOD banks
+        run: |
+          bash "scripts/build-fmod-banks.sh" \
+            "$FMOD_STUDIO_DEB_URL" \
+            "$FMOD_PROJECT_ARCHIVE_URL" \
+            "${{ github.workspace }}/fmod-banks"
+
+      - name: Upload FMOD bank artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fmod-banks
+          path: ${{ github.workspace }}/fmod-banks/*.bank
+
   build-android-apk:
     name: Build Android APK
     runs-on: windows-latest
-    needs: core-smoke-test
+    needs:
+      - core-smoke-test
+      - generate-fmod-banks
     if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
     env:
       APP_VERSION_CODE: ${{ format('{0}{1}', github.run_number, github.run_attempt) }}
@@ -57,6 +107,40 @@ jobs:
           & "${{ github.workspace }}\scripts\fetch-content.ps1" `
             -Url $env:CONTENT_ARCHIVE_URL `
             -TargetDir "${{ github.workspace }}\src\Celeste.Android\ContentPackage"
+
+      - name: Download FMOD bank artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fmod-banks
+          path: ${{ github.workspace }}\fmod-banks
+
+      - name: Overlay generated FMOD banks into Content
+        shell: pwsh
+        run: |
+          $required = @(
+            "Master Bank.bank",
+            "Master Bank.strings.bank",
+            "music.bank",
+            "sfx.bank",
+            "ui.bank",
+            "dlc_music.bank",
+            "dlc_sfx.bank"
+          )
+
+          $sourceDir = "${{ github.workspace }}\fmod-banks"
+          $targetDir = "${{ github.workspace }}\src\Celeste.Android\ContentPackage\Content\FMOD\Mobile"
+          New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+
+          foreach ($bank in $required) {
+            $sourcePath = Join-Path $sourceDir $bank
+            if (-not (Test-Path $sourcePath)) {
+              throw "Generated FMOD bank missing from artifact: $sourcePath"
+            }
+
+            Copy-Item -Path $sourcePath -Destination (Join-Path $targetDir $bank) -Force
+          }
+
+          Write-Host "FMOD banks overlay complete: $targetDir"
 
       - name: Validate release signing secrets
         shell: pwsh

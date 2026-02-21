@@ -310,7 +310,7 @@ public sealed class ContentValidator
                 "Content/FMOD",
                 fmodPath,
                 $"Banco obrigatorio ausente: {requiredBank}. Audio pode cair em fallback silencioso.",
-                "Gere e copie os bancos FMOD 1.10.14 para Content/FMOD/Mobile."
+                "Gere e copie os bancos FMOD 2.03.12 para Content/FMOD/Mobile."
             ));
         }
     }

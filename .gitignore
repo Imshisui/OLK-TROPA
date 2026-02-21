@@ -17,3 +17,9 @@
 
 # Android embedded content staging (downloaded at build time)
 /src/Celeste.Android/ContentPackage/
+
+# FMOD bank generation workspace/artifacts
+/.fmod-work/
+/.fmod-generated-banks/
+/fmodstudio20312linux64-installer.deb
+/fmodstudio10000celeste-project-dlc.1.zip

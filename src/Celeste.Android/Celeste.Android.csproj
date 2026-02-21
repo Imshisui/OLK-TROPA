@@ -36,11 +36,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AndroidNativeLibrary Include="..\..\FMOD-11.014\api\lowlevel\lib\armeabi-v7a\libfmod.so" />
-    <AndroidNativeLibrary Include="..\..\FMOD-11.014\api\lowlevel\lib\arm64-v8a\libfmod.so" />
-    <AndroidNativeLibrary Include="..\..\FMOD-11.014\api\studio\lib\armeabi-v7a\libfmodstudio.so" />
-    <AndroidNativeLibrary Include="..\..\FMOD-11.014\api\studio\lib\arm64-v8a\libfmodstudio.so" />
-    <AndroidJavaLibrary Include="..\..\FMOD-11.014\api\lowlevel\lib\fmod.jar" />
+    <AndroidNativeLibrary Include="..\..\FMOD-2.03.12\api\lowlevel\lib\armeabi-v7a\libfmod.so" />
+    <AndroidNativeLibrary Include="..\..\FMOD-2.03.12\api\lowlevel\lib\arm64-v8a\libfmod.so" />
+    <AndroidNativeLibrary Include="..\..\FMOD-2.03.12\api\studio\lib\armeabi-v7a\libfmodstudio.so" />
+    <AndroidNativeLibrary Include="..\..\FMOD-2.03.12\api\studio\lib\arm64-v8a\libfmodstudio.so" />
+    <AndroidJavaLibrary Include="..\..\FMOD-2.03.12\api\lowlevel\lib\fmod.jar" />
   </ItemGroup>
 
   <Target Name="ValidateEmbeddedContent" BeforeTargets="Build">
