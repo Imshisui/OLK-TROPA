@@ -50,6 +50,9 @@ jobs:
             libxfixes3 \
             libxcomposite1 \
             libxdamage1 \
+            libegl1 \
+            libgl1 \
+            libopengl0 \
             libxkbcommon0 \
             libxkbcommon-x11-0 \
             libxcb1 \
