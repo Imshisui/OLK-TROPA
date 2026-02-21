@@ -1560,9 +1560,9 @@ public static class Calc
 	{
 		XmlDocument xmlDocument = new XmlDocument();
 		string text = Path.Combine(Engine.ContentDirectory, filename);
-		if (File.Exists(text))
+		if (ContentFiles.FileExists(text))
 		{
-			using FileStream inStream = File.OpenRead(text);
+			using Stream inStream = ContentFiles.OpenRead(text);
 			xmlDocument.Load(inStream);
 			return xmlDocument;
 		}
@@ -1577,14 +1577,14 @@ public static class Calc
 	public static XmlDocument LoadXML(string filename)
 	{
 		XmlDocument xmlDocument = new XmlDocument();
-		using FileStream inStream = File.OpenRead(filename);
+		using Stream inStream = ContentFiles.OpenRead(filename);
 		xmlDocument.Load(inStream);
 		return xmlDocument;
 	}
 
 	public static bool ContentXMLExists(string filename)
 	{
-		return File.Exists(Path.Combine(Engine.ContentDirectory, filename));
+		return ContentFiles.FileExists(Path.Combine(Engine.ContentDirectory, filename));
 	}
 
 	public static bool XMLExists(string filename)

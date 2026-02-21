@@ -71,9 +71,9 @@ public class ObjModel : IDisposable
 		List<Vector3> list2 = new List<Vector3>();
 		List<Vector2> list3 = new List<Vector2>();
 		Mesh mesh = null;
-		if (File.Exists(filename + ".export"))
+		if (ContentFiles.FileExists(filename + ".export"))
 		{
-			using BinaryReader binaryReader = new BinaryReader(File.OpenRead(filename + ".export"));
+			using BinaryReader binaryReader = new BinaryReader(ContentFiles.OpenRead(filename + ".export"));
 			int num = binaryReader.ReadInt32();
 			for (int i = 0; i < num; i++)
 			{
@@ -115,7 +115,7 @@ public class ObjModel : IDisposable
 		}
 		else
 		{
-			using StreamReader streamReader = new StreamReader(filename);
+			using StreamReader streamReader = new StreamReader(ContentFiles.OpenRead(filename));
 			string text;
 			while ((text = streamReader.ReadLine()) != null)
 			{

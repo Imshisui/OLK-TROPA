@@ -106,7 +106,7 @@ public class MapData
 
 	private void Load()
 	{
-		if (!File.Exists(Filepath))
+		if (!ContentFiles.FileExists(Filepath))
 		{
 			return;
 		}

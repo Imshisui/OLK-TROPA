@@ -11,11 +11,11 @@ public static class PlaybackData
 
 	public static void Load()
 	{
-		string[] files = Directory.GetFiles(Path.Combine(Engine.ContentDirectory, "Tutorials"));
+		string[] files = ContentFiles.GetFiles(Path.Combine(Engine.ContentDirectory, "Tutorials"));
 		foreach (string path in files)
 		{
 			string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(path);
-			List<Player.ChaserState> value = Import(File.ReadAllBytes(path));
+			List<Player.ChaserState> value = Import(ContentFiles.ReadAllBytes(path));
 			Tutorials[fileNameWithoutExtension] = value;
 		}
 	}

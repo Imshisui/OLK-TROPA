@@ -8,6 +8,9 @@
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
     <RuntimeIdentifiers>android-arm;android-arm64</RuntimeIdentifiers>
+    <EmbeddedContentRoot>$(MSBuildProjectDirectory)\ContentPackage</EmbeddedContentRoot>
+    <EmbeddedContentDirectory>$(EmbeddedContentRoot)\Content</EmbeddedContentDirectory>
+    <AndroidStoreUncompressedFileExtensions>$(AndroidStoreUncompressedFileExtensions);.xnb;.bank;.bin;.xml;.meta;.fnt;.data</AndroidStoreUncompressedFileExtensions>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
@@ -26,6 +29,10 @@
                   Link="analog_custom/%(Filename)%(Extension)" />
     <AndroidAsset Include="..\..\ARQUIVOSPARAOANALOGICO\*.dat"
                   Link="analog_custom/%(Filename)%(Extension)" />
+    <AndroidAsset Include="$(EmbeddedContentDirectory)\**\*"
+                  Exclude="$(EmbeddedContentDirectory)\ErrorFont.xnb"
+                  Link="Content\%(RecursiveDir)%(Filename)%(Extension)"
+                  Condition="Exists('$(EmbeddedContentDirectory)')" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,5 +42,10 @@
     <AndroidNativeLibrary Include="..\..\FMOD-11.014\api\studio\lib\arm64-v8a\libfmodstudio.so" />
     <AndroidJavaLibrary Include="..\..\FMOD-11.014\api\lowlevel\lib\fmod.jar" />
   </ItemGroup>
+
+  <Target Name="ValidateEmbeddedContent" BeforeTargets="Build">
+    <Error Condition="!Exists('$(EmbeddedContentDirectory)')"
+           Text="Embedded Content directory not found at '$(EmbeddedContentDirectory)'. Run scripts/fetch-content.ps1 or scripts/fetch-content.sh before building Android." />
+  </Target>
 
 </Project>

@@ -32,12 +32,12 @@ public static class Audio
 		public static Bank Load(string name, bool loadStrings)
 		{
 			string text = ResolveBankPath(name);
-			if (!File.Exists(text + ".bank"))
+			if (!ContentFiles.FileExists(text + ".bank"))
 			{
 				throw new FileNotFoundException("FMOD bank not found", text + ".bank");
 			}
 
-			CheckFmod(system.loadBankFile(text + ".bank", LOAD_BANK_FLAGS.NORMAL, out var bank));
+			CheckFmod(LoadBankWithAndroidAssetFallback(text + ".bank", out var bank));
 			if (ShouldPreloadFmodSamplesOnCurrentPlatform())
 			{
 				RESULT result = bank.loadSampleData();
@@ -48,14 +48,107 @@ public static class Audio
 			}
 			if (loadStrings)
 			{
-				if (!File.Exists(text + ".strings.bank"))
+				if (!ContentFiles.FileExists(text + ".strings.bank"))
 				{
 					throw new FileNotFoundException("FMOD strings bank not found", text + ".strings.bank");
 				}
 
-				CheckFmod(system.loadBankFile(text + ".strings.bank", LOAD_BANK_FLAGS.NORMAL, out var _));
+				CheckFmod(LoadBankWithAndroidAssetFallback(text + ".strings.bank", out var _));
 			}
 			return bank;
+		}
+
+		private static RESULT LoadBankWithAndroidAssetFallback(string bankPath, out Bank bank)
+		{
+			RESULT result = system.loadBankFile(bankPath, LOAD_BANK_FLAGS.NORMAL, out bank);
+			if (result == RESULT.OK || !OperatingSystem.IsAndroid())
+			{
+				return result;
+			}
+
+			if (!ContentFiles.TryGetContentRelativePath(bankPath, out string relativePath))
+			{
+				return result;
+			}
+
+			string[] candidates = BuildAndroidAssetBankCandidates(bankPath, relativePath);
+			for (int i = 0; i < candidates.Length; i++)
+			{
+				string candidate = candidates[i];
+				if (string.IsNullOrWhiteSpace(candidate))
+				{
+					continue;
+				}
+
+				RESULT candidateResult = system.loadBankFile(candidate, LOAD_BANK_FLAGS.NORMAL, out bank);
+				if (candidateResult == RESULT.OK)
+				{
+					CelestePathBridge.LogInfo("FMOD", $"Loaded bank from APK asset path '{candidate}'.");
+					return candidateResult;
+				}
+
+				result = candidateResult;
+			}
+
+			if (!CelestePathBridge.TryOpenContentStream(relativePath, out Stream stream))
+			{
+				return result;
+			}
+
+			using (stream)
+			using (MemoryStream memoryStream = new MemoryStream())
+			{
+				stream.CopyTo(memoryStream);
+				byte[] bytes = memoryStream.ToArray();
+				RESULT memoryResult = system.loadBankMemory(bytes, LOAD_BANK_FLAGS.NORMAL, out bank);
+				if (memoryResult == RESULT.OK)
+				{
+					loadedBankMemoryBuffers.Add(bytes);
+					CelestePathBridge.LogWarn("FMOD", $"Loaded bank '{relativePath}' via memory fallback from APK stream.");
+					return memoryResult;
+				}
+
+				return memoryResult;
+			}
+		}
+
+		private static string[] BuildAndroidAssetBankCandidates(string bankPath, string relativePath)
+		{
+			string normalizedRelative = relativePath.Replace('\\', '/').TrimStart('/');
+			string normalizedBankPath = bankPath.Replace('\\', '/');
+			string[] candidates = new string[3]
+			{
+				normalizedBankPath,
+				"Content/" + normalizedRelative,
+				normalizedRelative
+			};
+
+			List<string> deduplicated = new List<string>(candidates.Length);
+			for (int i = 0; i < candidates.Length; i++)
+			{
+				string candidate = candidates[i];
+				if (string.IsNullOrWhiteSpace(candidate))
+				{
+					continue;
+				}
+
+				bool alreadyAdded = false;
+				for (int j = 0; j < deduplicated.Count; j++)
+				{
+					if (string.Equals(deduplicated[j], candidate, StringComparison.OrdinalIgnoreCase))
+					{
+						alreadyAdded = true;
+						break;
+					}
+				}
+
+				if (!alreadyAdded)
+				{
+					deduplicated.Add(candidate);
+				}
+			}
+
+			return deduplicated.ToArray();
 		}
 
 		private static string ResolveBankPath(string name)
@@ -81,7 +174,7 @@ public static class Audio
 					? Path.Combine(Engine.ContentDirectory, "FMOD", name)
 					: Path.Combine(Engine.ContentDirectory, "FMOD", folder, name);
 
-				if (!File.Exists(candidatePath + ".bank"))
+				if (!ContentFiles.FileExists(candidatePath + ".bank"))
 				{
 					continue;
 				}
@@ -112,6 +205,8 @@ public static class Audio
 	private static bool androidDriverInfoLogged;
 
 	private static bool androidSamplePreloadPolicyLogged;
+
+	private static readonly List<byte[]> loadedBankMemoryBuffers = new List<byte[]>();
 
 	public static bool FallbackSilentMode { get; private set; }
 
@@ -660,6 +755,7 @@ public static class Audio
 	{
 		ready = false;
 		cachedEventDescriptions.Clear();
+		loadedBankMemoryBuffers.Clear();
 		if (system != null)
 		{
 			CheckFmod(system.unloadAll());

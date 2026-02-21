@@ -14,3 +14,6 @@
 
 # Ignorar apenas a pasta Content da raiz
 /Content/
+
+# Android embedded content staging (downloaded at build time)
+/src/Celeste.Android/ContentPackage/

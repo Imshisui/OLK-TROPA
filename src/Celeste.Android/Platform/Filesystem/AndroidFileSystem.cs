@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Celeste.Core.Platform.Filesystem;
+using Celeste.Core.Platform.Interop;
 using Celeste.Core.Platform.Logging;
 using Celeste.Core.Platform.Paths;
 
@@ -26,17 +27,39 @@ public sealed class AndroidFileSystem : IFileSystem
 
     public bool FileExists(string path)
     {
-        return File.Exists(ResolvePath(path));
+        var resolved = ResolvePath(path);
+        if (TryGetContentRelativePath(path, resolved, out var relativePath) &&
+            CelestePathBridge.TryContentFileExists(relativePath, out var exists))
+        {
+            return exists;
+        }
+
+        return File.Exists(resolved);
     }
 
     public bool DirectoryExists(string path)
     {
-        return Directory.Exists(ResolvePath(path));
+        var resolved = ResolvePath(path);
+        if (TryGetContentRelativePath(path, resolved, out var relativePath) &&
+            CelestePathBridge.TryContentDirectoryExists(relativePath, out var exists))
+        {
+            return exists;
+        }
+
+        return Directory.Exists(resolved);
     }
 
     public IEnumerable<string> EnumerateFiles(string path, string searchPattern, SearchOption searchOption)
     {
         var resolved = ResolvePath(path);
+        if (TryGetContentRelativePath(path, resolved, out var relativePath) &&
+            CelestePathBridge.TryEnumerateContentFiles(relativePath, searchPattern, searchOption, out var contentFiles))
+        {
+            return contentFiles
+                .Select(relative => Path.Combine(_paths.ContentPath, relative.Replace('/', Path.DirectorySeparatorChar)))
+                .ToList();
+        }
+
         if (!Directory.Exists(resolved))
         {
             return Enumerable.Empty<string>();
@@ -56,6 +79,42 @@ public sealed class AndroidFileSystem : IFileSystem
     public IEnumerable<string> EnumerateDirectories(string path)
     {
         var resolved = ResolvePath(path);
+        if (TryGetContentRelativePath(path, resolved, out var relativePath) &&
+            CelestePathBridge.TryEnumerateContentFiles(relativePath, "*", SearchOption.AllDirectories, out var contentFiles))
+        {
+            var normalizedBase = NormalizeRelativePath(relativePath);
+            var immediateDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var file in contentFiles)
+            {
+                var normalizedFile = NormalizeRelativePath(file);
+                var localSegment = string.IsNullOrEmpty(normalizedBase)
+                    ? normalizedFile
+                    : normalizedFile.StartsWith(normalizedBase + "/", StringComparison.OrdinalIgnoreCase)
+                        ? normalizedFile[(normalizedBase.Length + 1)..]
+                        : string.Empty;
+
+                if (string.IsNullOrEmpty(localSegment))
+                {
+                    continue;
+                }
+
+                var slashIndex = localSegment.IndexOf('/');
+                if (slashIndex <= 0)
+                {
+                    continue;
+                }
+
+                var childDir = localSegment[..slashIndex];
+                var relativeDir = string.IsNullOrEmpty(normalizedBase)
+                    ? childDir
+                    : normalizedBase + "/" + childDir;
+                immediateDirectories.Add(Path.Combine(_paths.ContentPath, relativeDir.Replace('/', Path.DirectorySeparatorChar)));
+            }
+
+            return immediateDirectories.ToList();
+        }
+
         if (!Directory.Exists(resolved))
         {
             return Enumerable.Empty<string>();
@@ -75,6 +134,56 @@ public sealed class AndroidFileSystem : IFileSystem
     public IEnumerable<string> EnumerateEntries(string path)
     {
         var resolved = ResolvePath(path);
+        if (TryGetContentRelativePath(path, resolved, out var relativePath))
+        {
+            var entries = new List<string>();
+
+            if (CelestePathBridge.TryEnumerateContentFiles(relativePath, "*", SearchOption.TopDirectoryOnly, out var topFiles))
+            {
+                entries.AddRange(topFiles.Select(relative => Path.Combine(_paths.ContentPath, relative.Replace('/', Path.DirectorySeparatorChar))));
+            }
+
+            if (CelestePathBridge.TryEnumerateContentFiles(relativePath, "*", SearchOption.AllDirectories, out var allFiles))
+            {
+                var normalizedBase = NormalizeRelativePath(relativePath);
+                var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var file in allFiles)
+                {
+                    var normalizedFile = NormalizeRelativePath(file);
+                    var localSegment = string.IsNullOrEmpty(normalizedBase)
+                        ? normalizedFile
+                        : normalizedFile.StartsWith(normalizedBase + "/", StringComparison.OrdinalIgnoreCase)
+                            ? normalizedFile[(normalizedBase.Length + 1)..]
+                            : string.Empty;
+
+                    if (string.IsNullOrEmpty(localSegment))
+                    {
+                        continue;
+                    }
+
+                    var slashIndex = localSegment.IndexOf('/');
+                    if (slashIndex <= 0)
+                    {
+                        continue;
+                    }
+
+                    var childDir = localSegment[..slashIndex];
+                    var relativeDir = string.IsNullOrEmpty(normalizedBase)
+                        ? childDir
+                        : normalizedBase + "/" + childDir;
+                    directories.Add(Path.Combine(_paths.ContentPath, relativeDir.Replace('/', Path.DirectorySeparatorChar)));
+                }
+
+                entries.AddRange(directories);
+            }
+
+            if (entries.Count > 0)
+            {
+                return entries.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            }
+        }
+
         if (!Directory.Exists(resolved))
         {
             return Enumerable.Empty<string>();
@@ -94,6 +203,12 @@ public sealed class AndroidFileSystem : IFileSystem
     public Stream OpenRead(string path)
     {
         var resolved = ResolvePath(path);
+        if (TryGetContentRelativePath(path, resolved, out var relativePath) &&
+            CelestePathBridge.TryOpenContentStream(relativePath, out var contentStream))
+        {
+            return contentStream;
+        }
+
         try
         {
             return File.OpenRead(resolved);
@@ -141,5 +256,53 @@ public sealed class AndroidFileSystem : IFileSystem
         {
             File.Delete(resolved);
         }
+    }
+
+    private static bool TryGetContentRelativePath(string sourcePath, string resolvedPath, out string relativePath)
+    {
+        relativePath = string.Empty;
+
+        if (TryExtractContentRelativePath(NormalizeRelativePath(sourcePath), out relativePath))
+        {
+            return true;
+        }
+
+        return TryExtractContentRelativePath(NormalizeRelativePath(resolvedPath), out relativePath);
+    }
+
+    private static bool TryExtractContentRelativePath(string normalizedPath, out string relativePath)
+    {
+        relativePath = string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            return false;
+        }
+
+        if (string.Equals(normalizedPath, "Content", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (normalizedPath.StartsWith("Content/", StringComparison.OrdinalIgnoreCase))
+        {
+            relativePath = normalizedPath["Content/".Length..];
+            return true;
+        }
+
+        var markerIndex = normalizedPath.IndexOf("/Content/", StringComparison.OrdinalIgnoreCase);
+        if (markerIndex >= 0)
+        {
+            relativePath = normalizedPath[(markerIndex + "/Content/".Length)..];
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeRelativePath(string path)
+    {
+        return string.IsNullOrWhiteSpace(path)
+            ? string.Empty
+            : path.Replace('\\', '/').TrimStart('/');
     }
 }

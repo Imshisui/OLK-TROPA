@@ -24,7 +24,7 @@ public static class Dialog
 	{
 		Language = null;
 		Languages = new Dictionary<string, Language>();
-		string[] files = Directory.GetFiles(Path.Combine(Engine.ContentDirectory, "Dialog"), "*.txt", SearchOption.AllDirectories);
+		string[] files = ContentFiles.GetFiles(Path.Combine(Engine.ContentDirectory, "Dialog"), "*.txt", SearchOption.AllDirectories);
 		for (int i = 0; i < files.Length; i++)
 		{
 			LoadLanguage(files[i]);
@@ -57,11 +57,11 @@ public static class Dialog
 	public static Language LoadLanguage(string filename)
 	{
 		Language language = null;
-		if (File.Exists(filename))
+		if (ContentFiles.FileExists(filename))
 		{
 			language = Language.FromTxt(filename);
 		}
-		else if (File.Exists(filename + ".export"))
+		else if (ContentFiles.FileExists(filename + ".export"))
 		{
 			language = Language.FromExport(filename + ".export");
 		}
@@ -157,11 +157,11 @@ public static class Dialog
 
 	public static void CheckCharacters()
 	{
-		string[] files = Directory.GetFiles(Path.Combine(Engine.ContentDirectory, "Dialog"), "*.txt", SearchOption.AllDirectories);
+		string[] files = ContentFiles.GetFiles(Path.Combine(Engine.ContentDirectory, "Dialog"), "*.txt", SearchOption.AllDirectories);
 		foreach (string text in files)
 		{
 			HashSet<int> hashSet = new HashSet<int>();
-			foreach (string item in File.ReadLines(text, Encoding.UTF8))
+			foreach (string item in ContentFiles.ReadAllLines(text, Encoding.UTF8))
 			{
 				for (int j = 0; j < item.Length; j++)
 				{

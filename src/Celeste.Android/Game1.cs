@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using Android.App;
+using Celeste.Android.Platform.Content;
 using Celeste.Android.Platform.Fullscreen;
 using Celeste.Android.Platform.Lifecycle;
 using Celeste.Android.Platform.Rendering;
@@ -253,6 +254,7 @@ public class Game1 : Game, IAndroidGameLifecycle
 
             case BootPhase.BootInitPaths:
                 var layout = _services.Paths.EnsureDirectoryLayout();
+                var apkContent = new AndroidApkContentSource(_activity.Assets, _services.Logger);
                 CelestePathBridge.Configure(
                     () => _services.Paths.ContentPath,
                     () => _services.Paths.SavePath,
@@ -267,9 +269,13 @@ public class Game1 : Game, IAndroidGameLifecycle
                         };
 
                         _services.Logger.Log(mappedLevel, tag, message);
-                    });
+                    },
+                    apkContent.OpenApkContentStream,
+                    apkContent.FileExists,
+                    apkContent.DirectoryExists,
+                    apkContent.EnumerateFiles);
                 _services.Logger.Log(LogLevel.Info, "PATHS", $"BaseDataPath={_services.Paths.BaseDataPath}");
-                _services.Logger.Log(LogLevel.Info, "PATHS", $"ContentPath={_services.Paths.ContentPath}");
+                _services.Logger.Log(LogLevel.Info, "PATHS", "ContentPath=apk://assets/Content");
                 _services.Logger.Log(LogLevel.Info, "PATHS", $"LogsPath={_services.Paths.LogsPath}");
                 _services.Logger.Log(LogLevel.Info, "PATHS", $"SavePath={_services.Paths.SavePath}");
                 _services.Logger.Log(layout.Success ? LogLevel.Info : LogLevel.Error, "PATHS", layout.StatusCode, context: layout.Message);

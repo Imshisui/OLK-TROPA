@@ -620,7 +620,7 @@ public static class Input
 
 		foreach (string root in EnumeratePromptSourceRoots())
 		{
-			if (!Directory.Exists(root))
+			if (!ContentFiles.DirectoryExists(root))
 			{
 				continue;
 			}
@@ -629,7 +629,7 @@ public static class Input
 			{
 				string relative = candidates[i].Replace('/', Path.DirectorySeparatorChar);
 				string fullPath = Path.Combine(root, relative);
-				if (!File.Exists(fullPath))
+				if (!ContentFiles.FileExists(fullPath))
 				{
 					continue;
 				}
@@ -672,7 +672,7 @@ public static class Input
 			return false;
 		}
 
-		byte[] encoded = File.ReadAllBytes(fullPath);
+		byte[] encoded = ContentFiles.ReadAllBytes(fullPath);
 		byte[] decoded = CustomIconData.DecodeIfNeeded(encoded);
 		using var stream = new MemoryStream(decoded, writable: false);
 		Texture2D texture2D = Texture2D.FromStream(graphicsDevice, stream);

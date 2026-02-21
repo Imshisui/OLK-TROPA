@@ -31,6 +31,7 @@ jobs:
     env:
       APP_VERSION_CODE: ${{ format('{0}{1}', github.run_number, github.run_attempt) }}
       APP_VERSION_NAME: ${{ format('1.0.{0}.{1}', github.run_number, github.run_attempt) }}
+      CONTENT_ARCHIVE_URL: ${{ secrets.CONTENT_ARCHIVE_URL || vars.CONTENT_ARCHIVE_URL || 'https://github.com/Imshisui/-udio-/releases/download/V/Content.tar' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,6 +46,17 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
+
+      - name: Download embedded Content archive
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CONTENT_ARCHIVE_URL)) {
+            throw "CONTENT_ARCHIVE_URL is empty. Configure secrets.CONTENT_ARCHIVE_URL or vars.CONTENT_ARCHIVE_URL with a direct link to Content.zip (or .tar)."
+          }
+
+          & "${{ github.workspace }}\scripts\fetch-content.ps1" `
+            -Url $env:CONTENT_ARCHIVE_URL `
+            -TargetDir "${{ github.workspace }}\src\Celeste.Android\ContentPackage"
 
       - name: Validate release signing secrets
         shell: pwsh

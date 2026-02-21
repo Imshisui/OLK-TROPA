@@ -60,11 +60,11 @@ public static class Fonts
 	{
 		XmlReaderSettings xmlReaderSettings = new XmlReaderSettings();
 		xmlReaderSettings.CloseInput = true;
-		string[] files = Directory.GetFiles(Path.Combine(Engine.ContentDirectory, "Dialog"), "*.fnt", SearchOption.AllDirectories);
+		string[] files = ContentFiles.GetFiles(Path.Combine(Engine.ContentDirectory, "Dialog"), "*.fnt", SearchOption.AllDirectories);
 		foreach (string text in files)
 		{
 			string text2 = null;
-			using (XmlReader xmlReader = XmlReader.Create(File.OpenRead(text), xmlReaderSettings))
+			using (XmlReader xmlReader = XmlReader.Create(ContentFiles.OpenRead(text), xmlReaderSettings))
 			{
 				while (xmlReader.Read())
 				{

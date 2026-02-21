@@ -78,7 +78,7 @@ public class VirtualTexture : VirtualAsset
 		{
 		case ".data":
 		{
-			using (FileStream fileStream = File.OpenRead(System.IO.Path.Combine(Engine.ContentDirectory, Path)))
+			using (Stream fileStream = ContentFiles.OpenRead(System.IO.Path.Combine(Engine.ContentDirectory, Path)))
 			{
 				fileStream.Read(bytes, 0, 524288);
 				int num2 = 0;
@@ -155,7 +155,7 @@ public class VirtualTexture : VirtualAsset
 		}
 		case ".png":
 		{
-			using (FileStream stream2 = File.OpenRead(System.IO.Path.Combine(Engine.ContentDirectory, Path)))
+			using (Stream stream2 = ContentFiles.OpenRead(System.IO.Path.Combine(Engine.ContentDirectory, Path)))
 			{
 				Texture = Texture2D.FromStream(Engine.Graphics.GraphicsDevice, stream2);
 			}
@@ -182,7 +182,7 @@ public class VirtualTexture : VirtualAsset
 		}
 		default:
 		{
-			using (FileStream stream = File.OpenRead(System.IO.Path.Combine(Engine.ContentDirectory, Path)))
+			using (Stream stream = ContentFiles.OpenRead(System.IO.Path.Combine(Engine.ContentDirectory, Path)))
 			{
 				Texture = Texture2D.FromStream(Engine.Graphics.GraphicsDevice, stream);
 			}

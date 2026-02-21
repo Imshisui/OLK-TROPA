@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Xml;
+using Monocle;
 
 namespace Celeste;
 
@@ -269,7 +270,7 @@ public static class BinaryPacker
 
 	public static Element FromBinary(string filename)
 	{
-		using FileStream input = File.OpenRead(filename);
+		using Stream input = ContentFiles.OpenRead(filename);
 		BinaryReader binaryReader = new BinaryReader(input);
 		binaryReader.ReadString();
 		string package = binaryReader.ReadString();

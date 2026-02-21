@@ -93,7 +93,7 @@ public class Language
 	public static Language FromExport(string path)
 	{
 		Language language = new Language();
-		using BinaryReader binaryReader = new BinaryReader(File.OpenRead(path));
+		using BinaryReader binaryReader = new BinaryReader(ContentFiles.OpenRead(path));
 		language.Id = binaryReader.ReadString();
 		language.Label = binaryReader.ReadString();
 		language.IconPath = binaryReader.ReadString();
@@ -122,7 +122,7 @@ public class Language
 		string text = "";
 		StringBuilder stringBuilder = new StringBuilder();
 		string input = "";
-		foreach (string item in File.ReadLines(path, Encoding.UTF8))
+		foreach (string item in ContentFiles.ReadAllLines(path, Encoding.UTF8))
 		{
 			string text2 = item.Trim();
 			if (text2.Length <= 0 || text2[0] == '#')

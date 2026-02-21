@@ -6,6 +6,7 @@ using Android.OS;
 using Android.Runtime;
 using Android.Views;
 using Celeste.Android.Platform.Audio;
+using Celeste.Android.Platform.Content;
 using Celeste.Android.Platform.Diagnostics;
 using Celeste.Android.Platform.Filesystem;
 using Celeste.Android.Platform.Fullscreen;
@@ -62,10 +63,12 @@ public class RuntimeActivity : AndroidGameActivity
         _logger.Log(LogLevel.Info, "DEVICE", "PROFILE_CAPTURED", context: _deviceProfile.ToContextString());
         _logger.Log(LogLevel.Info, "POLICY", "ANDROID_RUNTIME_POLICY", context: $"lowMemoryMode={AndroidRuntimePolicy.IsLowMemoryModeEnabled()}; aggressiveGc={AndroidRuntimePolicy.IsAggressiveGarbageCollectionEnabled()}; preferReachProfile={AndroidRuntimePolicy.ShouldPreferReachGraphicsProfile()}; forceLegacyBlend={AndroidRuntimePolicy.ShouldForceLegacyBlendStates()}");
         _logger.Log(LogLevel.Info, "PATHS", $"BaseDataPath={paths.BaseDataPath}");
-        _logger.Log(LogLevel.Info, "PATHS", $"ContentPath={paths.ContentPath}");
+        _logger.Log(LogLevel.Info, "PATHS", "ContentPath=apk://assets/Content");
         _logger.Log(LogLevel.Info, "PATHS", $"LogsPath={paths.LogsPath}");
         _logger.Log(LogLevel.Info, "PATHS", $"SavePath={paths.SavePath}");
         _logger.Log(directoryLayout.Success ? LogLevel.Info : LogLevel.Error, "PATHS", directoryLayout.StatusCode, context: directoryLayout.Message);
+
+        var apkContent = new AndroidApkContentSource(Assets, _logger);
 
         CelestePathBridge.Configure(
             () => paths.ContentPath,
@@ -81,7 +84,11 @@ public class RuntimeActivity : AndroidGameActivity
                 };
 
                 _logger.Log(mappedLevel, tag, message);
-            });
+            },
+            apkContent.OpenApkContentStream,
+            apkContent.FileExists,
+            apkContent.DirectoryExists,
+            apkContent.EnumerateFiles);
 
         if (AudioRuntimePolicy.HasAndroidAudioInitCrashMarker(out var audioCrashMarkerPath))
         {

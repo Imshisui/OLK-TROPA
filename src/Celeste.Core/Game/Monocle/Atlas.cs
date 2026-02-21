@@ -101,7 +101,7 @@ public class Atlas
 		}
 		case AtlasDataFormat.CrunchBinary:
 		{
-			using FileStream input2 = File.OpenRead(Path.Combine(Engine.ContentDirectory, path));
+			using Stream input2 = ContentFiles.OpenRead(Path.Combine(Engine.ContentDirectory, path));
 			BinaryReader binaryReader4 = new BinaryReader(input2);
 			short num17 = binaryReader4.ReadInt16();
 			for (int num18 = 0; num18 < num17; num18++)
@@ -129,7 +129,7 @@ public class Atlas
 		}
 		case AtlasDataFormat.CrunchBinaryNoAtlas:
 		{
-			using FileStream input = File.OpenRead(Path.Combine(Engine.ContentDirectory, path + ".bin"));
+			using Stream input = ContentFiles.OpenRead(Path.Combine(Engine.ContentDirectory, path + ".bin"));
 			BinaryReader binaryReader3 = new BinaryReader(input);
 			short num11 = binaryReader3.ReadInt16();
 			for (int num12 = 0; num12 < num11; num12++)
@@ -157,7 +157,7 @@ public class Atlas
 		}
 		case AtlasDataFormat.Packer:
 		{
-			using FileStream fileStream2 = File.OpenRead(Path.Combine(Engine.ContentDirectory, path + ".meta"));
+			using Stream fileStream2 = ContentFiles.OpenRead(Path.Combine(Engine.ContentDirectory, path + ".meta"));
 			BinaryReader binaryReader2 = new BinaryReader(fileStream2);
 			binaryReader2.ReadInt32();
 			binaryReader2.ReadString();
@@ -198,7 +198,7 @@ public class Atlas
 		}
 		case AtlasDataFormat.PackerNoAtlas:
 		{
-			using FileStream fileStream = File.OpenRead(Path.Combine(Engine.ContentDirectory, path + ".meta"));
+			using Stream fileStream = ContentFiles.OpenRead(Path.Combine(Engine.ContentDirectory, path + ".meta"));
 			BinaryReader binaryReader = new BinaryReader(fileStream);
 			binaryReader.ReadInt32();
 			binaryReader.ReadString();
@@ -239,7 +239,7 @@ public class Atlas
 			break;
 		}
 		case AtlasDataFormat.CrunchXmlOrBinary:
-			if (File.Exists(Path.Combine(Engine.ContentDirectory, path + ".bin")))
+			if (ContentFiles.FileExists(Path.Combine(Engine.ContentDirectory, path + ".bin")))
 			{
 				ReadAtlasData(atlas, path + ".bin", AtlasDataFormat.CrunchBinary);
 			}
@@ -272,7 +272,7 @@ public class Atlas
 		while (true)
 		{
 			string text = Path.Combine(rootPath, filename + num + ".xml");
-			if (!File.Exists(Path.Combine(Engine.ContentDirectory, text)))
+			if (!ContentFiles.FileExists(Path.Combine(Engine.ContentDirectory, text)))
 			{
 				break;
 			}
@@ -290,7 +290,7 @@ public class Atlas
 		int length = contentDirectory.Length;
 		string text = Path.Combine(contentDirectory, path);
 		int length2 = text.Length;
-		string[] files = Directory.GetFiles(text, "*", SearchOption.AllDirectories);
+		string[] files = ContentFiles.GetFiles(text, "*", SearchOption.AllDirectories);
 		foreach (string text2 in files)
 		{
 			string extension = Path.GetExtension(text2);

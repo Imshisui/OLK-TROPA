@@ -14,8 +14,14 @@ public sealed class ExternalContentManager : ContentManager
 
     protected override Stream OpenStream(string assetName)
     {
-        var rootDirectory = CelestePathBridge.ResolveContentDirectory(RootDirectory);
         var relativeAsset = assetName.Replace('\\', '/').TrimStart('/') + ".xnb";
+        if (CelestePathBridge.TryOpenContentStream(relativeAsset, out var apkStream))
+        {
+            CelestePathBridge.LogInfo("CONTENT", $"OpenStream '{assetName}' -> 'apk://Content/{relativeAsset}'");
+            return apkStream;
+        }
+
+        var rootDirectory = CelestePathBridge.ResolveContentDirectory(RootDirectory);
         var expectedPath = Path.Combine(rootDirectory, relativeAsset.Replace('/', Path.DirectorySeparatorChar));
 
         if (!File.Exists(expectedPath))
